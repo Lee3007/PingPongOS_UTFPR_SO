@@ -6,6 +6,23 @@
 // Coloque aqui as suas modificações, p.ex. includes, defines variáveis, 
 // estruturas e funções
 
+void task_set_eet (task_t *task, int et){
+    if(task == NULL)
+        task = taskExec;
+    task->estimatedExecTime = et;
+}
+
+int task_get_eet(task_t *task){
+    if(task == NULL)
+        task = taskExec;
+    return task->estimatedExecTime;
+}
+
+int task_get_ret(task_t *task){
+    if(task == NULL)
+        task = taskExec;
+    return task->estimatedExecTime - task->executingTime;
+}
 
 // ****************************************************************************
 
