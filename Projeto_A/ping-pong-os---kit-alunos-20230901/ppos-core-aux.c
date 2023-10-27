@@ -1,9 +1,17 @@
 #include "ppos.h"
 #include "ppos-core-globals.h"
-
+#include <stdio.h>
+#include <stdlib.h>
+#include <signal.h>
+#include <sys/time.h>
 // ****************************************************************************
 // Coloque aqui as suas modificações, p.ex. includes, defines variáveis,
 // estruturas e funções
+
+struct sigaction action;
+struct itimerval timer;
+const int quantum = 20;
+int currentTaskRemainingTicks = quantum;
 
 void task_set_eet(task_t *task, int et)
 {
@@ -26,6 +34,28 @@ int task_get_ret(task_t *task)
     return task->estimatedExecTime - task->executingTime;
 }
 
+void tick_handler(int signum)
+{
+    printf("Recebi o sinal %d\n", signum);
+
+    if (taskExec->id == taskMain->id || taskExec->id == taskDisp->id)
+        return;
+
+    if (currentTaskRemainingTicks > 0)
+    {
+        taskExec->executingTime++;
+        currentTaskRemainingTicks--;
+    }
+    else
+    {
+        task_yield();
+    }
+}
+
+void task_setprio(task_t *task, int prio) {}
+
+int task_getprio(task_t *task) { return 0; }
+
 // ****************************************************************************
 
 void before_ppos_init()
@@ -38,6 +68,21 @@ void before_ppos_init()
 
 void after_ppos_init()
 {
+    action.sa_handler = tick_handler;
+    sigemptyset(&action.sa_mask);
+    action.sa_flags = 0;
+    if (sigaction(SIGALRM, &action, 0) < 0)
+    {
+        perror("Erro em sigaction: ");
+        exit(1);
+    }
+    timer.it_value.tv_usec = 1000;    // primeiro disparo, em micro-segundos
+    timer.it_interval.tv_usec = 1000; // disparos subsequentes, em micro-segundos
+    if (setitimer(ITIMER_REAL, &timer, 0) < 0)
+    {
+        perror("Erro em setitimer: ");
+        exit(1);
+    }
     // put your customization here
 #ifdef DEBUG
     printf("\ninit - AFTER");
@@ -102,6 +147,7 @@ void before_task_yield()
 void after_task_yield()
 {
     // put your customization here
+    currentTaskRemainingTicks = quantum;
 #ifdef DEBUG
     printf("\ntask_yield - AFTER - [%d]", taskExec->id);
 #endif
