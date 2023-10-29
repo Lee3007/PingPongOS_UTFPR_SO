@@ -2,11 +2,17 @@
 #include "ppos-core-globals.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include <signal.h>
-#include <sys/time.h>
+
 // ****************************************************************************
 // Coloque aqui as suas modificações, p.ex. includes, defines variáveis,
 // estruturas e funções
+
+// Equipe:
+// Felipe Augusto Lee        RA: 2240262
+// Gabriel Freitas Willig    RA: 2240289
+
+#include <signal.h>
+#include <sys/time.h>
 
 struct sigaction action;
 struct itimerval timer;

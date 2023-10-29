@@ -1,3 +1,10 @@
+//Equipe:
+//Felipe Augusto Lee        RA: 2240262
+//Gabriel Freitas Willig    RA: 2240289
+
+#include <signal.h>
+#include <sys/time.h>
+
 struct sigaction action;
 struct itimerval timer;
 const int quantum = 20;
