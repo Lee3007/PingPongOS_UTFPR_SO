@@ -31,25 +31,36 @@ int task_get_ret(task_t *task)
 {
     if (task == NULL)
         task = taskExec;
-    return task->estimatedExecTime - task->executingTime;
+    return task->estimatedExecTime - task->running_time;
 }
 
 void tick_handler(int signum)
 {
-    printf("Recebi o sinal %d\n", signum);
+    incrementAllTasksExecutionTimes();
+    systemTime += 1;
 
-    if (taskExec->id == taskMain->id || taskExec->id == taskDisp->id)
+    if (taskExec->id == taskDisp->id || taskExec->id == taskMain->id)
         return;
 
-    if (currentTaskRemainingTicks > 0)
-    {
-        taskExec->executingTime++;
-        currentTaskRemainingTicks--;
-    }
-    else
-    {
+    taskExec->running_time++;
+    currentTaskRemainingTicks--;
+    if (currentTaskRemainingTicks == 0)
         task_yield();
-    }
+}
+
+void incrementAllTasksExecutionTimes()
+{
+    if (readyQueue == NULL)
+        return;
+
+    task_t *taskIterator = readyQueue;
+    do
+    {
+        taskIterator->executionTime++;
+        taskIterator = taskIterator->next;
+    } while (taskIterator->id != readyQueue->id);
+
+    taskExec->executionTime++;
 }
 
 void task_setprio(task_t *task, int prio) {}
@@ -68,6 +79,7 @@ void before_ppos_init()
 
 void after_ppos_init()
 {
+    // put your customization here
     action.sa_handler = tick_handler;
     sigemptyset(&action.sa_mask);
     action.sa_flags = 0;
@@ -77,13 +89,20 @@ void after_ppos_init()
         exit(1);
     }
     timer.it_value.tv_usec = 1000;    // primeiro disparo, em micro-segundos
+    timer.it_value.tv_sec = 0;        // primeiro disparo, em segundos
     timer.it_interval.tv_usec = 1000; // disparos subsequentes, em micro-segundos
+    timer.it_interval.tv_sec = 0;     // disparos subsequentes, em segundos
     if (setitimer(ITIMER_REAL, &timer, 0) < 0)
     {
         perror("Erro em setitimer: ");
         exit(1);
     }
-    // put your customization here
+
+    if (taskMain != NULL)
+    {
+        task_set_eet(taskMain, 999999);
+    }
+    printf("PPOS intialized successfully...\n");
 #ifdef DEBUG
     printf("\ninit - AFTER");
 #endif
@@ -100,6 +119,9 @@ void before_task_create(task_t *task)
 void after_task_create(task_t *task)
 {
     // put your customization here
+    task->running_time = 0;
+    task->executionTime = 0;
+    task->numberOfActivations = 0;
 #ifdef DEBUG
     printf("\ntask_create - AFTER - [%d]", task->id);
 #endif
@@ -116,6 +138,11 @@ void before_task_exit()
 void after_task_exit()
 {
     // put your customization here
+    printf("\nTask %d exit: execution time %d ms, processor time %d ms, %d activations\n",
+           taskExec->id,
+           taskExec->executionTime,
+           taskExec->running_time,
+           taskExec->numberOfActivations);
 #ifdef DEBUG
     printf("\ntask_exit - AFTER- [%d]", taskExec->id);
 #endif
@@ -144,6 +171,7 @@ void before_task_yield()
     printf("\ntask_yield - BEFORE - [%d]", taskExec->id);
 #endif
 }
+
 void after_task_yield()
 {
     // put your customization here
@@ -512,14 +540,13 @@ task_t *scheduler()
     if (readyQueue == NULL)
         return NULL;
 
-    // Fila é circular, então marcamos o inicial e se o inicial=proximo paramos
+    // A fila de tarefas prontas é circular
     // Percorre a lista e encontra o que possui menor ret
     int lowestRET = __INT_MAX__;
     int currentRET;
 
     task_t *selectedTask = NULL;
     task_t *taskIterator = readyQueue;
-
     do
     {
         currentRET = task_get_ret(taskIterator);
@@ -529,7 +556,9 @@ task_t *scheduler()
             selectedTask = taskIterator;
         }
         taskIterator = taskIterator->next;
-    } while (taskIterator != readyQueue);
+    } while (taskIterator->id != readyQueue->id);
+
+    selectedTask->numberOfActivations++;
 
     return selectedTask;
 }
