@@ -2,6 +2,7 @@
 #include "ppos-core-globals.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <limits.h>
 
 // ****************************************************************************
 // Coloque aqui as suas modificações, p.ex. includes, defines variáveis,
@@ -18,6 +19,29 @@ struct sigaction action;
 struct itimerval timer;
 const int quantum = 20;
 int currentTaskRemainingTicks = quantum;
+extern task_t *diskManager;
+
+#define WORKLOAD 40000
+
+int hardwork(int n)
+{
+    int i, j, soma;
+
+    soma = 0;
+    for (i = 0; i < n; i++)
+        for (j = 0; j < n; j++)
+            soma += j;
+    return (soma);
+}
+
+void diskManagerTaskBody(void *arg)
+{
+    printf("%s: inicio em %4d ms (prio: %d)\n", (char *)arg,
+           systime(), task_getprio(NULL));
+    hardwork(WORKLOAD);
+    printf("%s: fim    em %4d ms\n", (char *)arg, systime());
+    task_exit(0);
+}
 
 void task_set_eet(task_t *task, int et)
 {
@@ -106,9 +130,12 @@ void after_ppos_init()
 
     if (taskMain != NULL)
     {
-        task_set_eet(taskMain, 999999);
+        task_set_eet(taskMain, INT_MAX - 20);
     }
-    printf("PPOS intialized successfully...\n");
+
+    task_create(&diskManager, diskManagerTaskBody, "Disk Manager")
+
+        printf("PPOS intialized successfully...\n");
 #ifdef DEBUG
     printf("\ninit - AFTER");
 #endif

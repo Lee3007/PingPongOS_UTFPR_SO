@@ -1,5 +1,6 @@
 {
   "files.associations": {
-    "ppos-core-globals.h": "c"
+    "ppos-core-globals.h": "c",
+    "time.h": "c"
   }
 }
