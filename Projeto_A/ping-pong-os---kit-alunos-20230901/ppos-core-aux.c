@@ -165,6 +165,7 @@ void before_task_switch(task_t *task)
 void after_task_switch(task_t *task)
 {
     // put your customization here
+    task->numberOfActivations++;
 #ifdef DEBUG
     printf("\ntask_switch - AFTER - [%d -> %d]", taskExec->id, task->id);
 #endif
@@ -564,7 +565,7 @@ task_t *scheduler()
         taskIterator = taskIterator->next;
     } while (taskIterator->id != readyQueue->id);
 
-    selectedTask->numberOfActivations++;
+    // selectedTask->numberOfActivations++;
 
     return selectedTask;
 }
