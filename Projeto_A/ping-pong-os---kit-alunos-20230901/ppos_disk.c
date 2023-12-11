@@ -28,6 +28,14 @@ void disk_mgr_body()
     { 
         if(disk_cmd(DISK_CMD_STATUS, 0, NULL) == 1 && disk_queue != NULL){
             
+            disk_task_t *current_task = escalonator_fcfs();
+            if(current_task->type == 1){
+                disk_cmd(DISK_CMD_WRITE, current_task->block, current_task->buffer);
+            }    
+            else if(current_task->type == 0){   
+                disk_cmd(DISK_CMD_READ, current_task->block, current_task->buffer);
+            }
+            
             task_suspend(&disk_manager_task, NULL);
             task_yield();
 
@@ -63,21 +71,26 @@ void signal_handler_disk()
 
 int disk_block_read(int block, void *buffer)
 {
-    int read_status = disk_cmd(DISK_CMD_READ, block, buffer);
+    if(disk_cmd(DISK_CMD_STATUS, block, buffer) == 1){
+        task_suspend(taskExec, disk_queue);
+        return disk_cmd(DISK_CMD_READ, block, buffer);
+    }else{
+        insert_disk_task(taskExec, block, buffer, 0);
+    }
 
-    insert_disk_task(taskExec, block, buffer, 0);
-
-    return read_status;
+    return -1;
 }
 
 int disk_block_write(int block, void *buffer)
 {
+    if(disk_cmd(DISK_CMD_STATUS, block, buffer) == 1){
+        task_suspend(taskExec, disk_queue);
+        return disk_cmd(DISK_CMD_WRITE, block, buffer);
+    }else{
+        insert_disk_task(taskExec, block, buffer, 1);
+    }
 
-    int write_status = disk_cmd(DISK_CMD_WRITE, block, buffer);
-
-    insert_disk_task(taskExec, block, buffer, 1);
-
-    return write_status;
+    return -1;
 }
 
 void insert_disk_task(task_t *task, int block, void *buffer, int type)
@@ -89,18 +102,19 @@ void insert_disk_task(task_t *task, int block, void *buffer, int type)
     disk_task->buffer = buffer;
     disk_task->type = type;
 
-    task_suspend(task, disk_queue);
+    task_suspend(task, NULL);
 
     task_yield();
 }
 
-void escalonator_fcfs()
+disk_task_t *escalonator_fcfs()
 {
     if (disk_queue != NULL && disk_queue->task != NULL)
     {
-        task_t *task_to_resume = disk_queue->task;
+        disk_task_t *task_to_exec = disk_queue;
         disk_queue = disk_queue->next;
-        task_resume(task_to_resume);
+        return task_to_exec;
+        // task_resume(task_to_exec);
     }
 }
 
